@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { Camera, QrCode, UserScan } from 'lucide-react';
+import { Camera, QrCode, ScanFace } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
@@ -52,7 +52,7 @@ export default function ScanPage() {
               <QrCode className="mr-2 h-5 w-5" /> Scan QR Code
             </Button>
             <Button variant="secondary" size="lg" onClick={handleScan}>
-              <UserScan className="mr-2 h-5 w-5" /> Verify with Face
+              <ScanFace className="mr-2 h-5 w-5" /> Verify with Face
             </Button>
           </div>
         </CardContent>
