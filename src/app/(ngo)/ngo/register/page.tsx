@@ -24,8 +24,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -44,6 +42,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { useFirestore, useUser, addDocumentNonBlocking } from '@/firebase';
+import { collection, serverTimestamp } from 'firebase/firestore';
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -67,6 +67,9 @@ type GpsLocation = {
 
 export default function RegisterBeneficiaryPage() {
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user, profile } = useUser();
+
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean>(true);
   const [isClient, setIsClient] = useState(false);
 
@@ -173,14 +176,59 @@ export default function RegisterBeneficiaryPage() {
 
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
-    // This is the final submission logic
-    toast({
-        title: "Registration Submitted!",
-        description: "The beneficiary registration is now pending supervisor approval.",
-    });
-    form.reset();
-    setCapturedPhoto(null);
-    setGpsLocation(null);
+    if (!firestore || !profile?.ngoId || !user || !capturedPhoto || !gpsLocation) {
+        toast({
+            variant: "destructive",
+            title: "Submission Failed",
+            description: "Missing required information. Please ensure all fields are complete.",
+        });
+        return;
+    }
+
+    try {
+        const beneficiaryCollection = collection(firestore, 'ngos', profile.ngoId, 'beneficiaries');
+        const uniqueId = `JS-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+
+        const newBeneficiary = {
+            ...data,
+            id: uniqueId,
+            janSetuId: uniqueId,
+            ngoId: profile.ngoId,
+            registrationWorkerId: user.uid,
+            // TODO: Replace with actual file upload URL
+            photoUrl: capturedPhoto,
+            photoHint: 'woman portrait', // Placeholder hint
+            gpsLocation: `${gpsLocation.latitude.toFixed(6)}, ${gpsLocation.longitude.toFixed(6)}`,
+            timestamp: serverTimestamp(),
+            status: 'Pending',
+            registeredBy: profile.email,
+            // TODO: Implement voice consent
+            voiceConsent: 'pending',
+            // these are just for mock data compatibility
+            location: `${gpsLocation.latitude.toFixed(4)}°, ${gpsLocation.longitude.toFixed(4)}°`,
+            registeredAt: new Date(),
+            qrCodeUrl: 'https://picsum.photos/seed/qrcode/200'
+        };
+
+        await addDocumentNonBlocking(beneficiaryCollection, newBeneficiary);
+
+        toast({
+            title: "Registration Submitted!",
+            description: "The beneficiary registration is now pending supervisor approval.",
+        });
+
+        form.reset();
+        setCapturedPhoto(null);
+        setGpsLocation(null);
+
+    } catch (error) {
+        console.error("Error submitting registration:", error);
+        toast({
+            variant: "destructive",
+            title: "Submission Error",
+            description: "An unexpected error occurred. Please try again.",
+        });
+    }
   };
 
   return (
@@ -197,9 +245,6 @@ export default function RegisterBeneficiaryPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Beneficiary Details</CardTitle>
-                  <CardDescription>
-                    Fill in the details of the beneficiary.
-                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                    <FormField
@@ -319,7 +364,7 @@ export default function RegisterBeneficiaryPage() {
                 <CardContent className="space-y-4">
                   <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden relative">
                     {capturedPhoto ? (
-                      <Image src={capturedPhoto} alt="Captured beneficiary" layout="fill" objectFit="cover" />
+                      <Image src={capturedPhoto} alt="Captured beneficiary" fill objectFit="cover" />
                     ) : (
                       <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
                     )}
@@ -376,4 +421,3 @@ export default function RegisterBeneficiaryPage() {
       </Form>
     </div>
   );
-}
