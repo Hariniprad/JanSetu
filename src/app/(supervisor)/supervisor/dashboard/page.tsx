@@ -1,3 +1,5 @@
+'use client';
+
 import Image from 'next/image';
 import { PageHeader } from '@/components/page-header';
 import {
@@ -8,23 +10,117 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { mockBeneficiaries } from '@/lib/mock-data';
-import { Check, X, User, MapPin, Clock } from 'lucide-react';
+import { Check, X, User, MapPin, Clock, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useCollection, useFirestore, useUser } from '@/firebase';
+import { useMemo, useState } from 'react';
+import { collection, query, where } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
+import { approveBeneficiary, rejectBeneficiary } from './actions';
+import { useToast } from '@/hooks/use-toast';
+
+type Beneficiary = {
+  id: string;
+  name: string;
+  description: string;
+  photoUrl: string;
+  photoHint: string;
+  location: string;
+  ageRange: string;
+  gender: 'Male' | 'Female' | 'Other';
+  registeredBy: string;
+  registeredAt: { seconds: number; nanoseconds: number };
+  status: 'Pending' | 'Approved' | 'Rejected';
+  qrCodeUrl: string;
+};
 
 export default function SupervisorDashboard() {
-  const pendingApprovals = mockBeneficiaries.filter(
-    (b) => b.status === 'Pending'
-  );
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  
+  // NOTE: In a real multi-NGO app, you'd fetch the supervisor's NGO ID from their user profile.
+  // For this prototype, we'll assume a single NGO context.
+  const ngoId = 'mock-ngo-id'; 
+
+  const beneficiariesQuery = useMemo(() => {
+    if (!firestore || !ngoId) return null;
+    return query(
+      collection(firestore, 'ngos', ngoId, 'beneficiaries'),
+      where('status', '==', 'Pending')
+    );
+  }, [firestore, ngoId]);
+
+  const { data: pendingApprovals, isLoading } = useCollection<Beneficiary>(beneficiariesQuery);
+
+  const handleApprove = async (beneficiaryId: string) => {
+    setUpdatingId(beneficiaryId);
+    const result = await approveBeneficiary(ngoId, beneficiaryId);
+    if (result.success) {
+      toast({ title: 'Beneficiary Approved', description: 'The beneficiary is now active.' });
+    } else {
+      toast({ variant: 'destructive', title: 'Approval Failed', description: result.error });
+    }
+    setUpdatingId(null);
+  };
+
+  const handleReject = async (beneficiaryId: string) => {
+    setUpdatingId(beneficiaryId);
+    const result = await rejectBeneficiary(ngoId, beneficiaryId);
+     if (result.success) {
+      toast({ title: 'Beneficiary Rejected' });
+    } else {
+      toast({ variant: 'destructive', title: 'Rejection Failed', description: result.error });
+    }
+    setUpdatingId(null);
+  };
+
+  const getRegisteredAtDate = (registeredAt: any) => {
+    if (registeredAt.seconds) {
+      return new Date(registeredAt.seconds * 1000);
+    }
+    return new Date();
+  }
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Pending Approvals"
-        description={`You have ${pendingApprovals.length} new registrations to review.`}
+        description={
+          isLoading
+            ? 'Loading registrations...'
+            : `You have ${pendingApprovals?.length || 0} new registrations to review.`
+        }
       />
+
+      {isLoading && (
+         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {[...Array(3)].map((_, i) => (
+                <Card key={i} className="flex flex-col">
+                    <CardHeader>
+                        <Skeleton className="aspect-video w-full" />
+                    </CardHeader>
+                    <CardContent className="flex-grow space-y-4">
+                        <Skeleton className="w-3/4 h-8" />
+                        <Skeleton className="w-full h-4" />
+                        <Skeleton className="w-full h-4" />
+                        <div className="space-y-2 pt-2 border-t">
+                            <Skeleton className="w-1/2 h-4" />
+                            <Skeleton className="w-2/3 h-4" />
+                            <Skeleton className="w-3/4 h-4" />
+                        </div>
+                    </CardContent>
+                    <CardFooter className="grid grid-cols-2 gap-2">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                    </CardFooter>
+                </Card>
+            ))}
+         </div>
+      )}
       
-      {pendingApprovals.length === 0 ? (
+      {!isLoading && pendingApprovals?.length === 0 ? (
         <Card className="flex flex-col items-center justify-center p-12 text-center">
             <CardHeader>
                 <CardTitle className="font-headline">All Clear!</CardTitle>
@@ -35,7 +131,7 @@ export default function SupervisorDashboard() {
         </Card>
       ) : (
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {pendingApprovals.map((beneficiary) => (
+        {pendingApprovals?.map((beneficiary) => (
           <Card key={beneficiary.id} className="flex flex-col">
             <CardHeader>
               <div className="aspect-video relative rounded-lg overflow-hidden -mt-2 -mx-2">
@@ -62,16 +158,18 @@ export default function SupervisorDashboard() {
                  </div>
                  <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4" />
-                    <span>Submitted {formatDistanceToNow(beneficiary.registeredAt, { addSuffix: true })}</span>
+                    <span>Submitted {formatDistanceToNow(getRegisteredAtDate(beneficiary.registeredAt), { addSuffix: true })}</span>
                  </div>
               </div>
             </CardContent>
             <CardFooter className="grid grid-cols-2 gap-2">
-              <Button variant="outline">
-                <X className="mr-2 h-4 w-4" /> Reject
+              <Button variant="outline" onClick={() => handleReject(beneficiary.id)} disabled={updatingId === beneficiary.id}>
+                {updatingId === beneficiary.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <X className="mr-2 h-4 w-4" />} 
+                Reject
               </Button>
-              <Button>
-                <Check className="mr-2 h-4 w-4" /> Approve
+              <Button onClick={() => handleApprove(beneficiary.id)} disabled={updatingId === beneficiary.id}>
+                {updatingId === beneficiary.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                Approve
               </Button>
             </CardFooter>
           </Card>
