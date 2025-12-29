@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm, useFormState } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { generateDescriptionAction } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useRef, useState } from 'react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const formSchema = z.object({
   ageRange: z.string({
@@ -58,12 +59,41 @@ export default function RegisterBeneficiaryPage() {
   const { toast } = useToast();
   const [generatedDescription, setGeneratedDescription] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean>(true);
+
   const formRef = useRef<HTMLFormElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
   });
+
+  useEffect(() => {
+    const getCameraPermission = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setHasCameraPermission(false);
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        setHasCameraPermission(true);
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions in your browser settings to use this app.',
+        });
+      }
+    };
+
+    getCameraPermission();
+  }, [toast]);
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     // This is the final submission logic
@@ -223,21 +253,21 @@ export default function RegisterBeneficiaryPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden relative">
-                    {cameraPlaceholder && (
-                       <Image
-                          src={cameraPlaceholder.imageUrl}
-                          alt="Camera placeholder"
-                          fill
-                          className="object-cover"
-                          data-ai-hint={cameraPlaceholder.imageHint}
-                       />
-                    )}
+                    <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                         <Button variant="secondary">
                            <Camera className="mr-2 h-4 w-4" /> Capture Photo
                         </Button>
                      </div>
                   </div>
+                  { !hasCameraPermission && (
+                    <Alert variant="destructive">
+                      <AlertTitle>Camera Access Required</AlertTitle>
+                      <AlertDescription>
+                        Please allow camera access to use this feature. Refresh the page after granting permission.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   <Button variant="outline" className="w-full">
                     <MapPin className="mr-2 h-4 w-4" /> Get GPS Location
                   </Button>
