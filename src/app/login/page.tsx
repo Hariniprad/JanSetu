@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,60 +17,71 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLogo from '@/components/app-logo';
-import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
-
-const phoneRegex = new RegExp(
-  /^([+]?[\s0-9]+)?(\d{3}|[(]\d{3}[)])?[\s-]?\d{3}[\s-]?\d{4}$/
-);
+import { useAuth, useUser } from '@/firebase';
+import {
+  initiateEmailSignIn,
+  initiateEmailSignUp,
+} from '@/firebase/non-blocking-login';
+import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
-  phone: z.string().regex(phoneRegex, 'Invalid phone number'),
-  otp: z.string().length(6, 'OTP must be 6 digits'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
 });
+
+type FormMode = 'signin' | 'signup';
 
 function LoginPageContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const role = searchParams.get('role') || 'ngo-worker';
-  const [isOtpSent, setIsOtpSent] = useState(false);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const auth = useAuth();
+  const { toast } = useToast();
+  const { user, isUserLoading } = useUser();
+  const [mode, setMode] = useState<FormMode>('signin');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      phone: '',
-      otp: '',
+      email: '',
+      password: '',
     },
   });
 
-  const handleSendOtp = () => {
-    setIsOtpSent(true);
-  };
+  useEffect(() => {
+    if (!isUserLoading && user) {
+      toast({
+        title: 'Login Successful',
+        description: 'Redirecting you to the dashboard...',
+      });
+      // Redirect based on a predefined role or logic
+      // For now, we default to the NGO dashboard
+      router.push('/ngo/dashboard');
+    }
+  }, [user, isUserLoading, router, toast]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoggingIn(true);
-    // Simulate API call
-    setTimeout(() => {
-      switch (role) {
-        case 'supervisor':
-          router.push('/supervisor/dashboard');
-          break;
-        case 'vendor':
-          router.push('/vendor/scan');
-          break;
-        case 'ngo-worker':
-        default:
-          router.push('/ngo/dashboard');
-          break;
-      }
-    }, 1000);
+    setIsSubmitting(true);
+    if (mode === 'signin') {
+      initiateEmailSignIn(auth, values.email, values.password);
+    } else {
+      initiateEmailSignUp(auth, values.email, values.password);
+    }
+    // The useEffect will handle redirection on successful login.
+    // We can add a timeout to reset submission state in case of error
+    setTimeout(() => setIsSubmitting(false), 5000); // Reset after 5s
   }
 
-  const roleName = (role: string) => {
-    return role.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
-  }
+  const toggleMode = () => {
+    setMode(prevMode => (prevMode === 'signin' ? 'signup' : 'signin'));
+    form.reset();
+  };
+
+  const title = mode === 'signin' ? 'Welcome Back' : 'Create an Account';
+  const description = mode === 'signin' ? 'Sign in to access your dashboard.' : 'Enter your details to create a new account.';
+  const buttonText = mode === 'signin' ? 'Sign In' : 'Sign Up';
+  const toggleLinkText = mode === 'signin' ? 'Don\'t have an account? Sign Up' : 'Already have an account? Sign In';
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gradient-to-br from-background to-secondary/30">
@@ -83,58 +94,52 @@ function LoginPageContent() {
             <AppLogo className="text-4xl" />
           </div>
           <CardTitle className="font-headline text-2xl">
-            {roleName(role)} Login
+            {title}
           </CardTitle>
           <CardDescription>
-            {isOtpSent ? 'Enter the OTP sent to your phone.' : 'Enter your phone number to continue.'}
+            {description}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className={`space-y-4 ${isOtpSent ? 'opacity-50' : ''}`}>
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="+91 98765 43210" {...field} disabled={isOtpSent} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {isOtpSent ? (
-                 <div className="space-y-4 animate-in fade-in-0 slide-in-from-bottom-5 duration-500">
-                    <FormField
-                    control={form.control}
-                    name="otp"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>One-Time Password (OTP)</FormLabel>
-                        <FormControl>
-                            <Input placeholder="123456" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    <Button type="submit" className="w-full" disabled={isLoggingIn}>
-                        {isLoggingIn && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Login
-                    </Button>
-                </div>
-              ) : (
-                <Button type="button" onClick={handleSendOtp} className="w-full">
-                  Send OTP
-                </Button>
-              )}
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="name@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="••••••••" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={isSubmitting || isUserLoading}>
+                {(isSubmitting || isUserLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {buttonText}
+              </Button>
             </form>
           </Form>
+          <div className="mt-6 text-center">
+            <Button variant="link" onClick={toggleMode}>
+              {toggleLinkText}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </main>

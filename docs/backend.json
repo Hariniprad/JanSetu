@@ -76,9 +76,9 @@
           "type": "string",
           "description": "Unique identifier for the User entity."
         },
-        "phoneNumber": {
+        "email": {
           "type": "string",
-          "description": "User's phone number."
+          "description": "User's email address."
         },
         "role": {
           "type": "string",
@@ -91,7 +91,7 @@
       },
       "required": [
         "id",
-        "phoneNumber",
+        "email",
         "role"
       ]
     },
@@ -123,8 +123,7 @@
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "password"
     ]
   },
   "firestore": {

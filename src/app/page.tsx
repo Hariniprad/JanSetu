@@ -9,19 +9,19 @@ const roles = [
     name: 'NGO Worker',
     description: 'Register and manage beneficiaries on the ground.',
     icon: <Users className="h-8 w-8 text-primary" />,
-    href: '/login?role=ngo-worker',
+    href: '/login',
   },
   {
     name: 'Supervisor',
     description: 'Approve new beneficiary registrations.',
     icon: <UserCheck className="h-8 w-8 text-primary" />,
-    href: '/login?role=supervisor',
+    href: '/login',
   },
   {
     name: 'Vendor',
     description: 'Verify beneficiaries and distribute benefits.',
     icon: <Store className="h-8 w-8 text-primary" />,
-    href: '/login?role=vendor',
+    href: '/login',
   },
 ];
 
@@ -55,7 +55,7 @@ export default function Home() {
                       <CardContent>
                         <p className="text-muted-foreground mb-6">{role.description}</p>
                         <Button variant="outline" className="w-full group-hover:bg-accent group-hover:text-accent-foreground transition-colors">
-                          Proceed
+                          Login
                           <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                       </CardContent>
