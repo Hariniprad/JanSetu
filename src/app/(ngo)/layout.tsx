@@ -1,5 +1,6 @@
+'use client';
+
 import AppLogo from '@/components/app-logo';
-import { PageHeader } from '@/components/page-header';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +23,8 @@ import {
   SidebarInset,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
+import { useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
 import {
   LayoutDashboard,
   UserPlus,
@@ -30,6 +33,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const navItems = [
   { href: '/ngo/dashboard', icon: <LayoutDashboard />, label: 'Dashboard' },
@@ -38,6 +42,14 @@ const navItems = [
 ];
 
 export default function NgoLayout({ children }: { children: React.ReactNode }) {
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/');
+  };
+
   return (
     <SidebarProvider>
       <Sidebar>
@@ -83,11 +95,9 @@ export default function NgoLayout({ children }: { children: React.ReactNode }) {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </Link>
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

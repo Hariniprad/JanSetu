@@ -1,3 +1,5 @@
+'use client';
+
 import AppLogo from '@/components/app-logo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -21,18 +23,29 @@ import {
   SidebarInset,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
+import { useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
 import {
   LayoutDashboard,
   LogOut,
   ChevronDown,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const navItems = [
   { href: '/supervisor/dashboard', icon: <LayoutDashboard />, label: 'Pending Approvals' },
 ];
 
 export default function SupervisorLayout({ children }: { children: React.ReactNode }) {
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/');
+  };
+
   return (
     <SidebarProvider>
       <Sidebar>
@@ -78,11 +91,9 @@ export default function SupervisorLayout({ children }: { children: React.ReactNo
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </Link>
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
