@@ -26,7 +26,6 @@ import {
 } from '@/firebase/non-blocking-login';
 import { useToast } from '@/hooks/use-toast';
 import { doc } from 'firebase/firestore';
-import { getAdditionalUserInfo, onAuthStateChanged, User } from 'firebase/auth';
 
 const formSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -35,6 +34,8 @@ const formSchema = z.object({
 
 type FormMode = 'signin' | 'signup';
 type UserRole = 'ngo' | 'supervisor' | 'vendor';
+
+const MOCK_NGO_ID = 'mock-ngo-id';
 
 function LoginPageContent() {
   const router = useRouter();
@@ -65,18 +66,30 @@ function LoginPageContent() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-        if (isNewUser) {
+        if (isNewUser && firestore) {
             // This is a new user, create their profile
+            const isNgoAssociated = role === 'ngo' || role === 'supervisor';
             const userProfile = {
                 id: user.uid,
                 email: user.email,
                 role: role,
-                // For NGO workers and supervisors, we'd associate an NGO ID here.
-                // For this prototype, we'll use a mock ID for relevant roles.
-                ngoId: (role === 'ngo' || role === 'supervisor') ? 'mock-ngo-id' : null,
+                ngoId: isNgoAssociated ? MOCK_NGO_ID : null,
             };
             const userDocRef = doc(firestore, 'users', user.uid);
             setDocumentNonBlocking(userDocRef, userProfile, { merge: true });
+
+            // If the user is part of an NGO, ensure the mock NGO doc exists
+            if (isNgoAssociated) {
+                const ngoDocRef = doc(firestore, 'ngos', MOCK_NGO_ID);
+                const ngoData = {
+                    id: MOCK_NGO_ID,
+                    name: "Mock Community Builders",
+                    location: "Virtual"
+                };
+                // This will create the doc if it doesn't exist, or merge if it does.
+                setDocumentNonBlocking(ngoDocRef, ngoData, { merge: true });
+            }
+
             setIsNewUser(false); // Reset flag
         }
 
@@ -103,6 +116,7 @@ function LoginPageContent() {
   }, [user, isUserLoading, router, toast, role, firestore, isNewUser, mode]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!auth) return;
     setIsSubmitting(true);
     if (mode === 'signin') {
       initiateEmailSignIn(auth, values.email, values.password);

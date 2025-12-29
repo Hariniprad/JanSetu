@@ -84,19 +84,20 @@ service cloud.firestore {
 
     /**
      * @description Rules for the NGO collection.
-     * Allows any signed-in user to read NGO information but denies all writes
-     * as the business logic for NGO management is not yet defined.
+     * Allows any signed-in user to read NGO information.
+     * Allows a signed-in user to create an NGO document. This is necessary
+     * for the sign-up flow to create a mock NGO for prototyping purposes.
      * @path /ngos/{ngoId}
      * @allow (get) A signed-in user reads an NGO document: `db.collection('ngos').doc('ngo-123').get()`
-     * @deny (create) An anonymous user attempts to create an NGO document.
+     * @allow (create) A signed-in user creates an NGO during sign-up.
      * @deny (update) Any user attempts to update an NGO document.
      * @principle Defaults to the most secure posture (read-only) for ambiguous requirements.
      */
     match /ngos/{ngoId} {
       allow get: if isSignedIn();
       allow list: if isSignedIn();
+      allow create: if isSignedIn();
       // Write operations are disabled until business logic for NGO management is specified.
-      allow create: if false; // TODO: Define rules for who can create an NGO.
       allow update: if false; // TODO: Define rules for who can update an NGO.
       allow delete: if false; // TODO: Define rules for who can delete an NGO.
     }
