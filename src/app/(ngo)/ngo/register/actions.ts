@@ -11,6 +11,7 @@ export async function submitRegistrationAction(formData: FormData) {
   
   // This is just a placeholder.
   console.log("Form submitted with data:", {
+    name: formData.get('name'),
     description: formData.get('description'),
     ageRange: formData.get('ageRange'),
     gender: formData.get('gender'),

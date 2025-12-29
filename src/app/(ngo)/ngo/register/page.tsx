@@ -34,7 +34,6 @@ import {
   Camera,
   MapPin,
   Clock,
-  Mic,
   Save,
   Loader2,
   RefreshCcw,
@@ -44,8 +43,12 @@ import { useToast } from '@/hooks/use-toast';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 
 const formSchema = z.object({
+  name: z.string().min(2, {
+    message: 'Name must be at least 2 characters long.',
+  }),
   description: z.string().min(10, {
     message: 'Description must be at least 10 characters long.',
   }),
@@ -78,6 +81,7 @@ export default function RegisterBeneficiaryPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      name: '',
       description: '',
     }
   });
@@ -198,6 +202,19 @@ export default function RegisterBeneficiaryPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                   <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Beneficiary Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter the beneficiary's full name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <FormField
                     control={form.control}
                     name="description"
@@ -273,7 +290,7 @@ export default function RegisterBeneficiaryPage() {
                               </FormControl>
                               <FormLabel className="font-normal">
                                 Female
-                              </FormLabel>
+                              </Label>
                             </FormItem>
                             <FormItem className="flex items-center space-x-3 space-y-0">
                               <FormControl>
@@ -340,9 +357,6 @@ export default function RegisterBeneficiaryPage() {
                         </AlertDescription>
                      </Alert>
                   )}
-                  <Button variant="outline" type="button" className="w-full">
-                    <Mic className="mr-2 h-4 w-4" /> Record Voice Consent
-                  </Button>
                   <div className="text-sm text-muted-foreground p-2 border rounded-lg flex items-start gap-2">
                     <Clock className="h-4 w-4 mt-0.5 shrink-0" />
                     <span>Timestamp will be automatically recorded upon submission.</span>
