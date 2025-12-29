@@ -1,43 +1,21 @@
 'use server';
 
-import { generateBeneficiaryDescription } from '@/ai/flows/generate-beneficiary-description';
 import { z } from 'zod';
 
-const formSchema = z.object({
-  ageRange: z.string(),
-  gender: z.string(),
-  photoDataUri: z.string().optional(),
-});
+// This file is no longer used for AI description generation, 
+// but it's kept in case other server actions are needed for this form.
 
-export async function generateDescriptionAction(formData: FormData) {
-  try {
-    const data = formSchema.parse({
-      ageRange: formData.get('ageRange'),
-      gender: formData.get('gender'),
-      photoDataUri: formData.get('photoDataUri'),
-    });
+export async function submitRegistrationAction(formData: FormData) {
+  // In a real application, you would process the form data here.
+  // For example, save it to a database, upload the photo, etc.
+  
+  // This is just a placeholder.
+  console.log("Form submitted with data:", {
+    description: formData.get('description'),
+    ageRange: formData.get('ageRange'),
+    gender: formData.get('gender'),
+    // photo and location would also be here
+  });
 
-    if (!data.photoDataUri) {
-      throw new Error('Photo is required to generate a description.');
-    }
-
-    const result = await generateBeneficiaryDescription({
-      photoDataUri: data.photoDataUri,
-      location: '28.6139° N, 77.2090° E', // Mock location for now
-      ageRange: data.ageRange,
-      gender: data.gender,
-    });
-
-    return {
-      success: true,
-      description: result.description,
-    };
-  } catch (error) {
-    console.error(error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
-    return {
-      success: false,
-      error: `Failed to generate description: ${errorMessage}`,
-    };
-  }
+  return { success: true };
 }

@@ -37,16 +37,18 @@ import {
   Mic,
   Save,
   Loader2,
-  Wand2,
   RefreshCcw,
 } from 'lucide-react';
 import Image from 'next/image';
-import { generateDescriptionAction } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Textarea } from '@/components/ui/textarea';
 
 const formSchema = z.object({
+  description: z.string().min(10, {
+    message: 'Description must be at least 10 characters long.',
+  }),
   ageRange: z.string({
     required_error: 'Please select an age range.',
   }),
@@ -62,8 +64,6 @@ type GpsLocation = {
 
 export default function RegisterBeneficiaryPage() {
   const { toast } = useToast();
-  const [generatedDescription, setGeneratedDescription] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean>(true);
   const [isClient, setIsClient] = useState(false);
 
@@ -72,12 +72,14 @@ export default function RegisterBeneficiaryPage() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
-  const formRef = useRef<HTMLFormElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    defaultValues: {
+      description: '',
+    }
   });
   
   useEffect(() => {
@@ -173,41 +175,9 @@ export default function RegisterBeneficiaryPage() {
         description: "The beneficiary registration is now pending supervisor approval.",
     });
     form.reset();
-    setGeneratedDescription(null);
     setCapturedPhoto(null);
     setGpsLocation(null);
   };
-  
-  const handleGenerateDescription = async () => {
-    const valid = await form.trigger();
-    if (!valid || !formRef.current) return;
-    
-    setIsGenerating(true);
-    setGeneratedDescription(null);
-
-    const formData = new FormData(formRef.current);
-    // Add captured photo to form data if available
-    if (capturedPhoto) {
-        formData.append('photoDataUri', capturedPhoto);
-    }
-    const result = await generateDescriptionAction(formData);
-
-    setIsGenerating(false);
-
-    if (result.success && result.description) {
-        setGeneratedDescription(result.description);
-        toast({
-            title: "Description Generated",
-            description: "AI has generated a short description for this beneficiary."
-        });
-    } else {
-        toast({
-            variant: "destructive",
-            title: "Generation Failed",
-            description: result.error || "Could not generate a description.",
-        });
-    }
-  }
 
   return (
     <div className="space-y-8">
@@ -217,17 +187,37 @@ export default function RegisterBeneficiaryPage() {
       />
       <canvas ref={canvasRef} className="hidden"></canvas>
       <Form {...form}>
-        <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               <Card>
                 <CardHeader>
                   <CardTitle>Beneficiary Details</CardTitle>
                   <CardDescription>
-                    Fill in the age and gender of the beneficiary.
+                    Fill in the details of the beneficiary.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Enter a brief description of the beneficiary..."
+                            className="resize-none"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          This will help supervisors identify the beneficiary.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <FormField
                     control={form.control}
                     name="ageRange"
@@ -300,24 +290,7 @@ export default function RegisterBeneficiaryPage() {
                     )}
                   />
                 </CardContent>
-                <CardFooter>
-                    <Button type="button" onClick={handleGenerateDescription} disabled={isGenerating || !capturedPhoto}>
-                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                        Generate Description with AI
-                    </Button>
-                </CardFooter>
               </Card>
-
-              {generatedDescription && (
-                <Card className="bg-primary/10 border-primary/20 animate-in fade-in-0">
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2"><Wand2 className="text-accent" /> AI Generated Description</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-foreground/90 italic">"{generatedDescription}"</p>
-                    </CardContent>
-                </Card>
-              )}
 
             </div>
 
@@ -335,14 +308,14 @@ export default function RegisterBeneficiaryPage() {
                     )}
                     {!capturedPhoto && hasCameraPermission && (
                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                          <Button variant="secondary" onClick={handleCapturePhoto}>
+                          <Button variant="secondary" type="button" onClick={handleCapturePhoto}>
                              <Camera className="mr-2 h-4 w-4" /> Capture Photo
                           </Button>
                        </div>
                     )}
                      {capturedPhoto && (
                        <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                          <Button variant="secondary" onClick={handleRetakePhoto}>
+                          <Button variant="secondary" type="button" onClick={handleRetakePhoto}>
                              <RefreshCcw className="mr-2 h-4 w-4" /> Retake Photo
                           </Button>
                        </div>
@@ -356,7 +329,7 @@ export default function RegisterBeneficiaryPage() {
                       </AlertDescription>
                     </Alert>
                   )}
-                  <Button variant="outline" className="w-full" onClick={handleGetLocation} disabled={isFetchingLocation}>
+                  <Button variant="outline" type="button" className="w-full" onClick={handleGetLocation} disabled={isFetchingLocation}>
                     {isFetchingLocation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />} 
                     {gpsLocation ? `${gpsLocation.latitude.toFixed(4)}, ${gpsLocation.longitude.toFixed(4)}` : 'Get GPS Location'}
                   </Button>
@@ -367,7 +340,7 @@ export default function RegisterBeneficiaryPage() {
                         </AlertDescription>
                      </Alert>
                   )}
-                  <Button variant="outline" className="w-full">
+                  <Button variant="outline" type="button" className="w-full">
                     <Mic className="mr-2 h-4 w-4" /> Record Voice Consent
                   </Button>
                   <div className="text-sm text-muted-foreground p-2 border rounded-lg flex items-start gap-2">
@@ -380,7 +353,7 @@ export default function RegisterBeneficiaryPage() {
           </div>
           
           <div className="flex justify-end">
-            <Button type="submit" size="lg" disabled={!generatedDescription || !capturedPhoto || !gpsLocation || form.formState.isSubmitting}>
+            <Button type="submit" size="lg" disabled={!form.formState.isValid || !capturedPhoto || !gpsLocation || form.formState.isSubmitting}>
                 <Save className="mr-2 h-4 w-4" />
                 Submit Registration
             </Button>
