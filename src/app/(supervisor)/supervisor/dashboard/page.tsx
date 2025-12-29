@@ -12,8 +12,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Check, X, User, MapPin, Clock, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { useCollection, useFirestore, useUser } from '@/firebase';
-import { useMemo, useState } from 'react';
+import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useState } from 'react';
 import { collection, query, where } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { approveBeneficiary, rejectBeneficiary } from './actions';
@@ -44,7 +44,7 @@ export default function SupervisorDashboard() {
   // For this prototype, we'll assume a single NGO context.
   const ngoId = 'mock-ngo-id'; 
 
-  const beneficiariesQuery = useMemo(() => {
+  const beneficiariesQuery = useMemoFirebase(() => {
     if (!firestore || !ngoId) return null;
     return query(
       collection(firestore, 'ngos', ngoId, 'beneficiaries'),
@@ -77,7 +77,7 @@ export default function SupervisorDashboard() {
   };
 
   const getRegisteredAtDate = (registeredAt: any) => {
-    if (registeredAt.seconds) {
+    if (registeredAt?.seconds) {
       return new Date(registeredAt.seconds * 1000);
     }
     return new Date();
