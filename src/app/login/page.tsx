@@ -19,12 +19,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import AppLogo from '@/components/app-logo';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, setDocumentNonBlocking, useFirestore } from '@/firebase';
 import {
   initiateEmailSignIn,
   initiateEmailSignUp,
 } from '@/firebase/non-blocking-login';
 import { useToast } from '@/hooks/use-toast';
+import { doc } from 'firebase/firestore';
+import { getAdditionalUserInfo, onAuthStateChanged, User } from 'firebase/auth';
 
 const formSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -38,11 +40,13 @@ function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const [mode, setMode] = useState<FormMode>('signin');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [role, setRole] = useState<UserRole>('ngo');
+  const [isNewUser, setIsNewUser] = useState(false);
 
   useEffect(() => {
     const roleFromQuery = searchParams.get('role') as UserRole;
@@ -61,8 +65,23 @@ function LoginPageContent() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
+        if (isNewUser) {
+            // This is a new user, create their profile
+            const userProfile = {
+                id: user.uid,
+                email: user.email,
+                role: role,
+                // For NGO workers and supervisors, we'd associate an NGO ID here.
+                // For this prototype, we'll use a mock ID for relevant roles.
+                ngoId: (role === 'ngo' || role === 'supervisor') ? 'mock-ngo-id' : null,
+            };
+            const userDocRef = doc(firestore, 'users', user.uid);
+            setDocumentNonBlocking(userDocRef, userProfile, { merge: true });
+            setIsNewUser(false); // Reset flag
+        }
+
       toast({
-        title: 'Login Successful',
+        title: mode === 'signup' ? 'Sign Up Successful' : 'Login Successful',
         description: 'Redirecting you to your dashboard...',
       });
       
@@ -81,14 +100,14 @@ function LoginPageContent() {
       }
       router.push(redirectPath);
     }
-  }, [user, isUserLoading, router, toast, role]);
+  }, [user, isUserLoading, router, toast, role, firestore, isNewUser, mode]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     if (mode === 'signin') {
       initiateEmailSignIn(auth, values.email, values.password);
     } else {
-      // TODO: On signup, also create a user profile in Firestore with the role
+      setIsNewUser(true); // Set flag to indicate a new user is being created
       initiateEmailSignUp(auth, values.email, values.password);
     }
     // The useEffect will handle redirection on successful login.
@@ -102,7 +121,7 @@ function LoginPageContent() {
   };
 
   const title = mode === 'signin' ? 'Welcome Back' : 'Create an Account';
-  const description = mode === 'signin' ? 'Sign in to access your dashboard.' : 'Enter your details to create a new account.';
+  const description = `Sign in as a ${role}.`;
   const buttonText = mode === 'signin' ? 'Sign In' : 'Sign Up';
   const toggleLinkText = mode === 'signin' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In';
 
