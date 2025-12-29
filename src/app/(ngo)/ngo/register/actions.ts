@@ -6,21 +6,24 @@ import { z } from 'zod';
 const formSchema = z.object({
   ageRange: z.string(),
   gender: z.string(),
+  photoDataUri: z.string().optional(),
 });
-
-// A small, 1x1 transparent PNG as a base64 data URI
-const placeholderPhotoDataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
 export async function generateDescriptionAction(formData: FormData) {
   try {
     const data = formSchema.parse({
       ageRange: formData.get('ageRange'),
       gender: formData.get('gender'),
+      photoDataUri: formData.get('photoDataUri'),
     });
 
+    if (!data.photoDataUri) {
+      throw new Error('Photo is required to generate a description.');
+    }
+
     const result = await generateBeneficiaryDescription({
-      photoDataUri: placeholderPhotoDataUri,
-      location: '28.6139° N, 77.2090° E', // Mock location
+      photoDataUri: data.photoDataUri,
+      location: '28.6139° N, 77.2090° E', // Mock location for now
       ageRange: data.ageRange,
       gender: data.gender,
     });

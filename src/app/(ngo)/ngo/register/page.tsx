@@ -38,9 +38,9 @@ import {
   Save,
   Loader2,
   Wand2,
+  RefreshCcw,
 } from 'lucide-react';
 import Image from 'next/image';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { generateDescriptionAction } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useRef, useState } from 'react';
@@ -55,18 +55,34 @@ const formSchema = z.object({
   }),
 });
 
+type GpsLocation = {
+  latitude: number;
+  longitude: number;
+};
+
 export default function RegisterBeneficiaryPage() {
   const { toast } = useToast();
   const [generatedDescription, setGeneratedDescription] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean>(true);
+  const [isClient, setIsClient] = useState(false);
+
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [gpsLocation, setGpsLocation] = useState<GpsLocation | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
   const formRef = useRef<HTMLFormElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
   });
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     const getCameraPermission = async () => {
@@ -92,8 +108,63 @@ export default function RegisterBeneficiaryPage() {
       }
     };
 
-    getCameraPermission();
-  }, [toast]);
+    if (isClient) {
+      getCameraPermission();
+    }
+  }, [isClient, toast]);
+
+  const handleCapturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        const dataUri = canvas.toDataURL('image/jpeg');
+        setCapturedPhoto(dataUri);
+      }
+    }
+  };
+
+  const handleRetakePhoto = () => {
+    setCapturedPhoto(null);
+  };
+
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    setIsFetchingLocation(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setGpsLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setIsFetchingLocation(false);
+        toast({
+            title: "Location Captured",
+            description: "Your current GPS coordinates have been recorded."
+        })
+      },
+      (error) => {
+        setLocationError(`Error getting location: ${error.message}`);
+        setIsFetchingLocation(false);
+        toast({
+            variant: "destructive",
+            title: "Location Error",
+            description: `Could not get your location. Please ensure location services are enabled.`,
+        })
+      }
+    );
+  };
+
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     // This is the final submission logic
@@ -103,6 +174,8 @@ export default function RegisterBeneficiaryPage() {
     });
     form.reset();
     setGeneratedDescription(null);
+    setCapturedPhoto(null);
+    setGpsLocation(null);
   };
   
   const handleGenerateDescription = async () => {
@@ -113,6 +186,10 @@ export default function RegisterBeneficiaryPage() {
     setGeneratedDescription(null);
 
     const formData = new FormData(formRef.current);
+    // Add captured photo to form data if available
+    if (capturedPhoto) {
+        formData.append('photoDataUri', capturedPhoto);
+    }
     const result = await generateDescriptionAction(formData);
 
     setIsGenerating(false);
@@ -132,15 +209,13 @@ export default function RegisterBeneficiaryPage() {
     }
   }
 
-  const cameraPlaceholder = PlaceHolderImages.find(p => p.id === 'camera-placeholder');
-
   return (
     <div className="space-y-8">
       <PageHeader
         title="Register New Beneficiary"
         description="Capture the required details to register a new person."
       />
-
+      <canvas ref={canvasRef} className="hidden"></canvas>
       <Form {...form}>
         <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -226,7 +301,7 @@ export default function RegisterBeneficiaryPage() {
                   />
                 </CardContent>
                 <CardFooter>
-                    <Button type="button" onClick={handleGenerateDescription} disabled={isGenerating}>
+                    <Button type="button" onClick={handleGenerateDescription} disabled={isGenerating || !capturedPhoto}>
                         {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
                         Generate Description with AI
                     </Button>
@@ -253,14 +328,27 @@ export default function RegisterBeneficiaryPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="aspect-video w-full bg-muted rounded-lg overflow-hidden relative">
-                    <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                     <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                        <Button variant="secondary">
-                           <Camera className="mr-2 h-4 w-4" /> Capture Photo
-                        </Button>
-                     </div>
+                    {capturedPhoto ? (
+                      <Image src={capturedPhoto} alt="Captured beneficiary" layout="fill" objectFit="cover" />
+                    ) : (
+                      <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                    )}
+                    {!capturedPhoto && hasCameraPermission && (
+                       <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                          <Button variant="secondary" onClick={handleCapturePhoto}>
+                             <Camera className="mr-2 h-4 w-4" /> Capture Photo
+                          </Button>
+                       </div>
+                    )}
+                     {capturedPhoto && (
+                       <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                          <Button variant="secondary" onClick={handleRetakePhoto}>
+                             <RefreshCcw className="mr-2 h-4 w-4" /> Retake Photo
+                          </Button>
+                       </div>
+                    )}
                   </div>
-                  { !hasCameraPermission && (
+                  { !hasCameraPermission && isClient && (
                     <Alert variant="destructive">
                       <AlertTitle>Camera Access Required</AlertTitle>
                       <AlertDescription>
@@ -268,9 +356,17 @@ export default function RegisterBeneficiaryPage() {
                       </AlertDescription>
                     </Alert>
                   )}
-                  <Button variant="outline" className="w-full">
-                    <MapPin className="mr-2 h-4 w-4" /> Get GPS Location
+                  <Button variant="outline" className="w-full" onClick={handleGetLocation} disabled={isFetchingLocation}>
+                    {isFetchingLocation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />} 
+                    {gpsLocation ? `${gpsLocation.latitude.toFixed(4)}, ${gpsLocation.longitude.toFixed(4)}` : 'Get GPS Location'}
                   </Button>
+                  {locationError && (
+                     <Alert variant="destructive" className="text-xs">
+                        <AlertDescription>
+                          {locationError}
+                        </AlertDescription>
+                     </Alert>
+                  )}
                   <Button variant="outline" className="w-full">
                     <Mic className="mr-2 h-4 w-4" /> Record Voice Consent
                   </Button>
@@ -284,7 +380,7 @@ export default function RegisterBeneficiaryPage() {
           </div>
           
           <div className="flex justify-end">
-            <Button type="submit" size="lg" disabled={!generatedDescription || form.formState.isSubmitting}>
+            <Button type="submit" size="lg" disabled={!generatedDescription || !capturedPhoto || !gpsLocation || form.formState.isSubmitting}>
                 <Save className="mr-2 h-4 w-4" />
                 Submit Registration
             </Button>
