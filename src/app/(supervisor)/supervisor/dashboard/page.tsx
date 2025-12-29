@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Check, X, User, MapPin, Clock, Loader2 } from 'lucide-react';
+import { Check, X, User, MapPin, Clock, Loader2, ShieldAlert } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { useState } from 'react';
@@ -35,26 +35,29 @@ type Beneficiary = {
 };
 
 export default function SupervisorDashboard() {
-  const { user } = useUser();
+  const { user, profile, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  
-  // NOTE: In a real multi-NGO app, you'd fetch the supervisor's NGO ID from their user profile.
-  // For this prototype, we'll assume a single NGO context.
-  const ngoId = 'mock-ngo-id'; 
+
+  const isSupervisor = profile?.role === 'supervisor';
+  const ngoId = profile?.ngoId;
 
   const beneficiariesQuery = useMemoFirebase(() => {
-    if (!firestore || !ngoId) return null;
+    // Only create a query if the user is a supervisor and has an NGO ID
+    if (!firestore || !isSupervisor || !ngoId) return null;
     return query(
       collection(firestore, 'ngos', ngoId, 'beneficiaries'),
       where('status', '==', 'Pending')
     );
-  }, [firestore, ngoId]);
+  }, [firestore, isSupervisor, ngoId]);
 
-  const { data: pendingApprovals, isLoading } = useCollection<Beneficiary>(beneficiariesQuery);
+  const { data: pendingApprovals, isLoading: isLoadingBeneficiaries } = useCollection<Beneficiary>(beneficiariesQuery);
+  
+  const isLoading = isUserLoading || isLoadingBeneficiaries;
 
   const handleApprove = async (beneficiaryId: string) => {
+    if (!ngoId) return;
     setUpdatingId(beneficiaryId);
     const result = await approveBeneficiary(ngoId, beneficiaryId);
     if (result.success) {
@@ -66,6 +69,7 @@ export default function SupervisorDashboard() {
   };
 
   const handleReject = async (beneficiaryId: string) => {
+    if (!ngoId) return;
     setUpdatingId(beneficiaryId);
     const result = await rejectBeneficiary(ngoId, beneficiaryId);
      if (result.success) {
@@ -81,6 +85,22 @@ export default function SupervisorDashboard() {
       return new Date(registeredAt.seconds * 1000);
     }
     return new Date();
+  }
+  
+  if (!isUserLoading && !isSupervisor) {
+    return (
+        <Card className="flex flex-col items-center justify-center p-12 text-center">
+            <CardHeader>
+                <div className="mx-auto bg-destructive/10 p-4 rounded-full">
+                    <ShieldAlert className="h-12 w-12 text-destructive" />
+                </div>
+                <CardTitle className="font-headline text-2xl mt-4">Access Denied</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-muted-foreground">You do not have permission to view this page. Please log in as a supervisor.</p>
+            </CardContent>
+        </Card>
+    )
   }
 
   return (
