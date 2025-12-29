@@ -32,14 +32,24 @@ const formSchema = z.object({
 });
 
 type FormMode = 'signin' | 'signup';
+type UserRole = 'ngo' | 'supervisor' | 'vendor';
 
 function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const auth = useAuth();
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const [mode, setMode] = useState<FormMode>('signin');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [role, setRole] = useState<UserRole>('ngo');
+
+  useEffect(() => {
+    const roleFromQuery = searchParams.get('role') as UserRole;
+    if (['ngo', 'supervisor', 'vendor'].includes(roleFromQuery)) {
+      setRole(roleFromQuery);
+    }
+  }, [searchParams]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -53,19 +63,32 @@ function LoginPageContent() {
     if (!isUserLoading && user) {
       toast({
         title: 'Login Successful',
-        description: 'Redirecting you to the dashboard...',
+        description: 'Redirecting you to your dashboard...',
       });
-      // Redirect based on a predefined role or logic
-      // For now, we default to the NGO dashboard
-      router.push('/ngo/dashboard');
+      
+      let redirectPath = '/ngo/dashboard'; // Default
+      switch (role) {
+        case 'supervisor':
+          redirectPath = '/supervisor/dashboard';
+          break;
+        case 'vendor':
+          redirectPath = '/vendor/scan';
+          break;
+        case 'ngo':
+        default:
+          redirectPath = '/ngo/dashboard';
+          break;
+      }
+      router.push(redirectPath);
     }
-  }, [user, isUserLoading, router, toast]);
+  }, [user, isUserLoading, router, toast, role]);
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     if (mode === 'signin') {
       initiateEmailSignIn(auth, values.email, values.password);
     } else {
+      // TODO: On signup, also create a user profile in Firestore with the role
       initiateEmailSignUp(auth, values.email, values.password);
     }
     // The useEffect will handle redirection on successful login.
@@ -81,7 +104,7 @@ function LoginPageContent() {
   const title = mode === 'signin' ? 'Welcome Back' : 'Create an Account';
   const description = mode === 'signin' ? 'Sign in to access your dashboard.' : 'Enter your details to create a new account.';
   const buttonText = mode === 'signin' ? 'Sign In' : 'Sign Up';
-  const toggleLinkText = mode === 'signin' ? 'Don\'t have an account? Sign Up' : 'Already have an account? Sign In';
+  const toggleLinkText = mode === 'signin' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In';
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gradient-to-br from-background to-secondary/30">

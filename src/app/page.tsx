@@ -9,19 +9,19 @@ const roles = [
     name: 'NGO Worker',
     description: 'Register and manage beneficiaries on the ground.',
     icon: <Users className="h-8 w-8 text-primary" />,
-    href: '/login',
+    href: '/login?role=ngo',
   },
   {
     name: 'Supervisor',
     description: 'Approve new beneficiary registrations.',
     icon: <UserCheck className="h-8 w-8 text-primary" />,
-    href: '/login',
+    href: '/login?role=supervisor',
   },
   {
     name: 'Vendor',
     description: 'Verify beneficiaries and distribute benefits.',
     icon: <Store className="h-8 w-8 text-primary" />,
-    href: '/login',
+    href: '/login?role=vendor',
   },
 ];
 
