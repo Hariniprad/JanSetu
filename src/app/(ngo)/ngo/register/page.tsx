@@ -290,7 +290,7 @@ export default function RegisterBeneficiaryPage() {
                               </FormControl>
                               <FormLabel className="font-normal">
                                 Female
-                              </Label>
+                              </FormLabel>
                             </FormItem>
                             <FormItem className="flex items-center space-x-3 space-y-0">
                               <FormControl>
