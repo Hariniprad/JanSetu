@@ -1,0 +1,52 @@
+{
+  "placeholderImages": [
+    {
+      "id": "beneficiary1",
+      "description": "Photo of Asha Devi",
+      "imageUrl": "https://images.unsplash.com/photo-1580883344775-c5a84aa3b7e7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxlbGRlcmx5JTIwd29tYW58ZW58MHx8fHwxNzY2NjkzNzk5fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "elderly woman"
+    },
+    {
+      "id": "beneficiary2",
+      "description": "Photo of Ramesh Singh",
+      "imageUrl": "https://images.unsplash.com/photo-1528900403525-dc523d4f18d6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHx5b3VuZyUyMG1hbnxlbnwwfHx8fDE3NjY4MTMzNTN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "young man"
+    },
+    {
+      "id": "beneficiary3",
+      "description": "Photo of Sunita Kumari",
+      "imageUrl": "https://images.unsplash.com/photo-1672478637022-fc0bf4c9f3f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxtb3RoZXIlMjBjaGlsZHJlbnxlbnwwfHx8fDE3NjY4MTMzNTN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "mother children"
+    },
+    {
+      "id": "beneficiary4",
+      "description": "Photo of Amit Patel",
+      "imageUrl": "https://images.unsplash.com/photo-1590682680695-43b964a3ae17?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxmYXJtZXJ8ZW58MHx8fHwxNzY2ODEzMzUzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "farmer"
+    },
+    {
+      "id": "beneficiary5",
+      "description": "Photo of Geeta Yadav",
+      "imageUrl": "https://images.unsplash.com/photo-1503676382389-4809596d5290?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxzdHVkZW50fGVufDB8fHx8MTc2NjgxMzM1M3ww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "student"
+    },
+    {
+      "id": "qrCode1",
+      "description": "Sample QR Code 1",
+      "imageUrl": "https://images.unsplash.com/photo-1550482781-48d477e61c72?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxxciUyMGNvZGV8ZW58MHx8fHwxNzY2NzQ0MDk2fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "qr code"
+    },
+    {
+      "id": "qrCode2",
+      "description": "Sample QR Code 2",
+      "imageUrl": "https://images.unsplash.com/photo-1626682561113-d1db402cc866?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxxciUyMGNvZGV8ZW58MHx8fHwxNzY2NzQ0MDk2fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "qr code"
+    },
+    {
+      "id": "camera-placeholder",
+      "description": "Placeholder for camera view",
+      "imageUrl": "https://images.unsplash.com/photo-1535272518984-73bf7a3e36d7?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxzdHJlZXQlMjB2aWV3fGVufDB8fHx8MTc2Njc5OTk0Nnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "street view"
+    }
+  ]
+}
