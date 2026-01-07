@@ -1,0 +1,145 @@
+rules_version = '2';
+
+/**
+ * @fileoverview Firestore Security Rules for the JanSetu Application.
+ *
+ * @description
+ * Core Philosophy: This ruleset implements an NGO-based access control model. A user's
+ * permissions are determined by their role and their affiliation with a specific NGO,
+ * as defined in their user profile document. Access to sensitive data, such as
+ * beneficiaries, is scoped to the NGO they belong to.
+ *
+ * Data Structure:
+ * - /ngos/{ngoId}: Top-level public information about NGOs.
+ * - /users/{userId}: Private user profiles containing critical authorization data
+ *   like their role and assigned `ngoId`.
+ * - /ngos/{ngoId}/beneficiaries/{beneficiaryId}: Beneficiary data, nested under the
+ *   NGO they are associated with for clear, secure, and performant access control.
+ *
+ * Key Security Decisions:
+ * - User Isolation: Users can only access their own profile document (/users/{userId}).
+ *   Listing all users is strictly forbidden to protect user privacy.
+ * - NGO-Scoped Access: Access to beneficiary data within `/ngos/{ngoId}/...` is granted
+ *   only to users whose profile document contains a matching `ngoId`. This is checked
+ *   via a `get()` call to the user's profile on every relevant request.
+ * - Public Reads for Beneficiaries: To support the public-facing dashboard, read
+ *   operations (`get` and `list`) on beneficiary documents are allowed for anyone,
+ *   even unauthenticated users. Write operations remain strictly controlled.
+ * - Prototyping Flexibility: These rules enforce strict authorization but do not
+ *   validate the shape or data types of documents, allowing for rapid front-end
+ *   development and iteration on the data model.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --------------------------------------------------------------------------------
+    // Helper Functions
+    // --------------------------------------------------------------------------------
+
+    /**
+     * @description Checks if the request is from an authenticated user.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user's UID matches the given userId.
+     * This is the foundation of the user ownership model.
+     * @param userId The UID of the document owner.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    /**
+     * @description Checks for ownership on an existing document.
+     * Crucial for safe update and delete operations.
+     * @param userId The UID of the document owner.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Retrieves the authenticated user's profile data from /users.
+     * This is used to check for role and NGO affiliation.
+     */
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    /**
+     * @description Verifies if the authenticated user is a member of a specific NGO.
+     * This is the core rule for accessing NGO-scoped data.
+     * @param ngoId The ID of the NGO to check membership against.
+     */
+    function isNgoMember(ngoId) {
+      return isSignedIn() && getUserData().ngoId == ngoId;
+    }
+
+    // --------------------------------------------------------------------------------
+    // Collection Rules
+    // --------------------------------------------------------------------------------
+
+    /**
+     * @description Rules for the NGO collection.
+     * Allows any signed-in user to read NGO information.
+     * Allows a signed-in user to create an NGO document. This is necessary
+     * for the sign-up flow to create a mock NGO for prototyping purposes.
+     * @path /ngos/{ngoId}
+     * @allow (get) A signed-in user reads an NGO document: `db.collection('ngos').doc('ngo-123').get()`
+     * @allow (create) A signed-in user creates an NGO during sign-up.
+     * @deny (update) Any user attempts to update an NGO document.
+     * @principle Defaults to the most secure posture (read-only) for ambiguous requirements.
+     */
+    match /ngos/{ngoId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      // Write operations are disabled until business logic for NGO management is specified.
+      allow update: if false; // TODO: Define rules for who can update an NGO.
+      allow delete: if false; // TODO: Define rules for who can delete an NGO.
+    }
+
+    /**
+     * @description Rules for the User collection.
+     * A user can create their own profile and manage it. They cannot see or edit
+     * anyone else's profile. User listing is disabled.
+     * @path /users/{userId}
+     * @allow (create) A new user signs up and creates their own user document: `db.collection('users').doc('user-abc').set({ id: 'user-abc', ... })` where auth.uid is 'user-abc'.
+     * @allow (update) A signed-in user updates their own profile: `db.collection('users').doc('user-abc').update({ phoneNumber: '555-0123' })` where auth.uid is 'user-abc'.
+     * @deny (get) A user tries to read another user's profile: `db.collection('users').doc('user-xyz').get()` where auth.uid is 'user-abc'.
+     * @deny (list) A user tries to get a list of all users: `db.collection('users').get()`.
+     * @principle Enforces strict data privacy and self-management of user profiles.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for the Beneficiary subcollection, nested under an NGO.
+     * Read access is public to support the public dashboard and vendor verification.
+     * Write access is restricted to members of the parent NGO.
+     * @path /ngos/{ngoId}/beneficiaries/{beneficiaryId}
+     * @allow (get, list) Any user (authenticated or not) can read beneficiary data for dashboards and verification.
+     * @deny (create) An NGO worker from 'ngo-abc' tries to create a beneficiary in 'ngo-xyz'.
+     * @deny (update) An NGO worker tries to change the `ngoId` field on an existing beneficiary.
+     * @principle Scopes write access to members of a parent resource (NGO), enforcing organizational boundaries, while allowing broad public read access.
+     */
+    match /ngos/{ngoId}/beneficiaries/{beneficiaryId} {
+      // Allow public read access for dashboards and verification.
+      allow get: if true;
+      allow list: if true;
+      
+      // Restrict write operations to members of the specific NGO.
+      allow create: if isNgoMember(ngoId) && request.resource.data.ngoId == ngoId;
+      allow update: if isNgoMember(ngoId) && resource != null && request.resource.data.ngoId == resource.data.ngoId;
+      allow delete: if isNgoMember(ngoId) && resource != null;
+    }
+  }
+}

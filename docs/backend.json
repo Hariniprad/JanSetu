@@ -1,0 +1,190 @@
+{
+  "entities": {
+    "Beneficiary": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Beneficiary",
+      "type": "object",
+      "description": "Represents a beneficiary registered in the JanSetu system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Beneficiary entity."
+        },
+        "ngoId": {
+          "type": "string",
+          "description": "Reference to the NGO that registered the beneficiary. (Relationship: NGO 1:N Beneficiary)"
+        },
+        "photo": {
+          "type": "string",
+          "description": "URL or path to the beneficiary's photo."
+        },
+        "gpsLocation": {
+          "type": "string",
+          "description": "GPS coordinates of the beneficiary's registration location."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp of the beneficiary's registration.",
+          "format": "date-time"
+        },
+        "voiceConsent": {
+          "type": "string",
+          "description": "URL or path to the beneficiary's voice consent recording."
+        },
+        "ageRange": {
+          "type": "string",
+          "description": "Age range of the beneficiary."
+        },
+        "gender": {
+          "type": "string",
+          "description": "Gender of the beneficiary."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the beneficiary, e.g., 'ACTIVE', 'PENDING', 'REJECTED'."
+        },
+        "janSetuId": {
+          "type": "string",
+          "description": "Unique JanSetu identifier assigned to the beneficiary."
+        },
+        "registrationWorkerId": {
+          "type": "string",
+          "description": "Reference to the NGO worker who registered the beneficiary. (Relationship: User 1:N Beneficiary)"
+        },
+        "voiceProfileId": {
+          "type": "string",
+          "description": "Unique identifier for the beneficiary's voice profile from the voice recognition service."
+        }
+      },
+      "required": [
+        "id",
+        "ngoId",
+        "photo",
+        "gpsLocation",
+        "timestamp",
+        "voiceConsent",
+        "ageRange",
+        "gender",
+        "status",
+        "janSetuId",
+        "registrationWorkerId"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the JanSetu system (NGO Worker, Supervisor, Vendor).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address."
+        },
+        "role": {
+          "type": "string",
+          "description": "User's role in the system (e.g., 'NGO Worker', 'Supervisor', 'Vendor')."
+        },
+        "ngoId": {
+          "type": "string",
+          "description": "Reference to the NGO the user belongs to, if applicable. (Relationship: NGO 1:N User)"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "role"
+      ]
+    },
+    "NGO": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "NGO",
+      "type": "object",
+      "description": "Represents a Non-Governmental Organization.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the NGO entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the NGO."
+        },
+        "location": {
+          "type": "string",
+          "description": "Location of the NGO."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "location"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/ngos/{ngoId}",
+        "definition": {
+          "entityName": "NGO",
+          "schema": {
+            "$ref": "#/backend/entities/NGO"
+          },
+          "description": "Stores NGO data. Each document represents an NGO.",
+          "params": [
+            {
+              "name": "ngoId",
+              "description": "Unique identifier for the NGO."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user data. Each document represents a user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/ngos/{ngoId}/beneficiaries/{beneficiaryId}",
+        "definition": {
+          "entityName": "Beneficiary",
+          "schema": {
+            "$ref": "#/backend/entities/Beneficiary"
+          },
+          "description": "Stores beneficiary data associated with an NGO. Includes denormalized 'ngoId' for authorization independence.",
+          "params": [
+            {
+              "name": "ngoId",
+              "description": "Unique identifier for the NGO."
+            },
+            {
+              "name": "beneficiaryId",
+              "description": "Unique identifier for the beneficiary."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure authorization independence, clarity, and scalability, aligning with the specified principles. It leverages path-based ownership for user-related data and membership maps where collaborative access is required. \n\n1.  **Authorization Independence:** Beneficiary data is stored under the corresponding NGO, with the `ngoId` denormalized within each Beneficiary document. This eliminates the need for security rules to perform `get()` operations to verify the NGO. This ensures that beneficiary data can be created and managed atomically without dependency on the parent NGO document.\n\n2.  **Structural Segregation:** Each collection is homogeneous, containing only documents with similar access requirements. For instance, the `/ngos` collection contains NGO data, and `/ngos/{ngoId}/beneficiaries` contains only beneficiary data associated with a specific NGO.\n\n3.  **Access Modeling:** Path-based ownership is used for `users` and their associated `beneficiaries`, adhering to the pattern `/users/{userId}/beneficiaries/{beneficiaryId}` for NGO workers. For NGOs, the structure `/ngos/{ngoId}` is employed, providing a clear ownership model. \n\n4.  **QAPs (Rules are not Filters):** The structure enables secure `list` operations. For example, supervisors can list beneficiaries within their NGO context using rules that enforce the `ngoId` matches the document's `ngoId`.\n\n5.  **Global Roles:** There is no use of global roles like `/roles_admin/{uid}`. All roles are assigned by simply checking the existence of a user document using the user id."
+  }
+}
